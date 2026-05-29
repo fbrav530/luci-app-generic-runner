@@ -20,9 +20,15 @@ jobs:
           tar -xJf sdk.tar.xz --strip-components=1
           rm -f sdk.tar.xz
           
-          # 直接把当前仓库里的源码（Makefile 和 root）复制到 SDK 的 package 目录下 👇
-          mkdir -p package/luci-app-generic-runner
-          cp -R ../Makefile ../root package/luci-app-generic-runner/
+          # 1. 创建插件的目标目录
+          mkdir -p package/luci-app-generic-runner/root
+          
+          # 2. 复制根目录下的 Makefile 到插件目录
+          cp ../Makefile package/luci-app-generic-runner/
+          
+          # 3. 把根目录下的 etc 和 usr 目录，复制到插件的 root 文件夹下 👇
+          [ -d "../etc" ] && cp -R ../etc package/luci-app-generic-runner/root/
+          [ -d "../usr" ] && cp -R ../usr package/luci-app-generic-runner/root/
           
           ./scripts/feeds update -a
           make defconfig
