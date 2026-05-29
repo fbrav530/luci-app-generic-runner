@@ -1,0 +1,5 @@
+config generic_runner 'main'
+	option enabled '0'
+	option bin_path '/usr/bin/your-binary'
+	option extra_args '--port 8080 --verbose'
+	option log_path '/var/log/generic_runner.log'
