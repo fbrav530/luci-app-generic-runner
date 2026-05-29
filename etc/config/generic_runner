@@ -2,11 +2,9 @@ config generic_runner 'global'
 	option enabled '0'
 
 config program
+	option enabled '1'
 	option name '示例程序1'
 	option bin_path '/usr/bin/v2ray'
 	option extra_args '-version'
-
-config program
-	option name '示例程序2'
-	option bin_path '/usr/sbin/nginx'
-	option extra_args '-v'
+	option respawn_timeout '5'
+	option respawn_retry '5'
