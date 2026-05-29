@@ -1,4 +1,3 @@
--- 显式引入 LuCI 翻译函数，解决 attempt to call global '_' 报错
 local _ = luci.i18n.translate
 
 local m, s, o
@@ -18,17 +17,16 @@ o = s:option(Value, "bin_path", _("二进制文件路径"))
 o.datatype = "file"
 o.placeholder = "/usr/bin/your-binary"
 o.rmempty = false
-o._description = _("请输入您想运行的二进制程序的绝对路径，例如 /usr/bin/v2ray 或 /usr/sbin/nginx")
 
 -- 3. 自定义启动参数
 o = s:option(Value, "extra_args", _("自定义启动参数"))
 o.rmempty = true
-o._description = _("参数之间请用空格分隔，例如：-c /etc/config.json --daemon")
 
--- 4. 日志路径
-o = s:option(Value, "log_path", _("日志文件路径"))
+-- 4. 重定向的日志路径
+o = s:option(Value, "log_path", _("日志保存路径"))
 o.default = "/var/log/generic_runner.log"
 o.rmempty = false
+o._description = _("由于程序直接在终端打印日志，系统会自动将其捕获并重定向保存到该文件中，以便网页查看。")
 
 -- ------------------ 实时日志查看模块 ------------------
 local log_title = s:option(DummyValue, "_log_title", _("运行日志"))
@@ -36,10 +34,8 @@ local log_title = s:option(DummyValue, "_log_title", _("运行日志"))
 local log_view = s:option(DummyValue, "_log_view")
 log_view.rawhtml = true
 
--- 获取日志接口的 URL
 local log_url = luci.dispatcher.build_url("admin", "services", "generic_runner", "log")
 
--- 使用严格兼容 ucodebridge 的动态标签拼接
 log_view.value = ""
     .. "<" .. "textarea class=\"cbi-input-textarea\" style=\"width: 100%; font-family: monospace;\" id=\"log_content\" rows=\"15\" readonly=\"readonly\" wrap=\"off\">正在加载日志...</" .. "textarea>"
     .. "<" .. "script type=\"text/javascript\">"
@@ -47,8 +43,8 @@ log_view.value = ""
     .. "        XHR.get('" .. log_url .. "', null,"
     .. "            function(x, data) {"
     .. "                var textarea = document.getElementById('log_content');"
-    .. "                if (textarea && data) {"
-    .. "                    textarea.value = data;"
+    .. "                if (textarea) {"
+    .. "                    textarea.value = data || '等待程序打印日志输出...';"
     .. "                    textarea.scrollTop = textarea.scrollHeight;"
     .. "                }"
     .. "            }"
@@ -58,7 +54,6 @@ log_view.value = ""
     .. "    document.addEventListener(\"DOMContentLoaded\", fetch_log);"
     .. "</" .. "script>"
 
--- 页面点击“保存&应用”后自动重启后台系统服务
 s.setsavehook = function()
     luci.sys.call("/etc/init.d/generic_runner restart >/dev/null 2>&1")
 end
