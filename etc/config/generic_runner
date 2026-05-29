@@ -1,5 +1,12 @@
-config generic_runner 'main'
+config generic_runner 'global'
 	option enabled '0'
-	option bin_path '/usr/bin/your-binary'
-	option extra_args '--port 8080 --verbose'
-	option log_path '/var/log/generic_runner.log'
+
+config program
+	option name '示例程序1'
+	option bin_path '/usr/bin/v2ray'
+	option extra_args '-version'
+
+config program
+	option name '示例程序2'
+	option bin_path '/usr/sbin/nginx'
+	option extra_args '-v'
