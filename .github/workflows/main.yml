@@ -1,0 +1,39 @@
+name: 编译本地LuCI插件
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 签出本仓库源码
+        uses: actions/checkout@v3
+
+      - name: 下载并配置工具链
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          
+          # 创建 SDK 目录并解压
+          mkdir sdk && cd sdk
+          wget -qO sdk.tar.xz https://downloads.openwrt.org/releases/22.03.5/targets/rockchip/armv8/openwrt-sdk-22.03.5-rockchip-armv8_gcc-11.2.0_musl.Linux-x86_64.tar.xz
+          tar -xJf sdk.tar.xz --strip-components=1
+          rm -f sdk.tar.xz
+          
+          # 直接把当前仓库里的源码（Makefile 和 root）复制到 SDK 的 package 目录下 👇
+          mkdir -p package/luci-app-generic-runner
+          cp -R ../Makefile ../root package/luci-app-generic-runner/
+          
+          ./scripts/feeds update -a
+          make defconfig
+
+      - name: 开始编译
+        run: |
+          cd sdk
+          make package/luci-app-generic-runner/compile V=s -j$(nproc)
+
+      - name: 上传编译附件
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-generic-runner
+          path: sdk/bin/packages/aarch64_generic/base/*.ipk
