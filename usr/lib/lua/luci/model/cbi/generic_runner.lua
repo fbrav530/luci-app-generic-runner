@@ -32,29 +32,30 @@ local log_title = s:option(DummyValue, "_log_title", _("运行日志"))
 
 local log_view = s:option(DummyValue, "_log_view")
 log_view.rawhtml = true
-log_view.value = [[
-<textarea class="cbi-input-textarea" style="width: 100%; font-family: monospace;" id="log_content" rows="15" readonly="readonly" wrap="off">正在加载日志...</textarea>
-<script type="text/javascript">//<![CDATA[
-    function fetch_log() {
-        XHR.get(']] .. luci.dispatcher.build_url("admin", "services", "generic_runner", "log") .. [[', null,
-            function(x, data) {
-                var textarea = document.getElementById('log_content');
-                if (textarea && data) {
-                    textarea.value = data;
-                    // 自动滚动到最底部
-                    textarea.scrollTop = textarea.scrollHeight;
-                }
-            }
-        );
-    }
-    // 每 3 秒自动刷新一次日志
-    window.setInterval(fetch_log, 3000);
-    // 页面加载时立即执行一次
-    document.addEventListener("DOMContentLoaded", fetch_log);
-//]]></script>
-]]
 
--- 页面提交后自动应用并重启服务
+-- 获取日志接口的 URL
+local log_url = luci.dispatcher.build_url("admin", "services", "generic_runner", "log")
+
+-- 使用严格兼容 ucodebridge 的动态标签拼接，完美避开语法解析错误
+log_view.value = ""
+    .. "<" .. "textarea class=\"cbi-input-textarea\" style=\"width: 100%; font-family: monospace;\" id=\"log_content\" rows=\"15\" readonly=\"readonly\" wrap=\"off\">正在加载日志...</" .. "textarea>"
+    .. "<" .. "script type=\"text/javascript\">"
+    .. "    function fetch_log() {"
+    .. "        XHR.get('" .. log_url .. "', null,"
+    .. "            function(x, data) {"
+    .. "                var textarea = document.getElementById('log_content');"
+    .. "                if (textarea && data) {"
+    .. "                    textarea.value = data;"
+    .. "                    textarea.scrollTop = textarea.scrollHeight;"
+    .. "                }"
+    .. "            }"
+    .. "        );"
+    .. "    }"
+    .. "    window.setInterval(fetch_log, 3000);"
+    .. "    document.addEventListener(\"DOMContentLoaded\", fetch_log);"
+    .. "</" .. "script>"
+
+-- 页面点击“保存&应用”后自动重启后台系统服务
 s.setsavehook = function()
     luci.sys.call("/etc/init.d/generic_runner restart >/dev/null 2>&1")
 end
