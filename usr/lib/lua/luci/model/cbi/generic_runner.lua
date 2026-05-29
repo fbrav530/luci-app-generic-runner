@@ -1,3 +1,6 @@
+-- 显式引入 LuCI 翻译函数，解决 attempt to call global '_' 报错
+local _ = luci.i18n.translate
+
 local m, s, o
 
 m = Map("generic_runner", _("通用程序运行器"), _("这是一个通用的 LuCI 界面，允许你自定义任意二进制文件的路径、启动参数并查看日志。"))
@@ -36,7 +39,7 @@ log_view.rawhtml = true
 -- 获取日志接口的 URL
 local log_url = luci.dispatcher.build_url("admin", "services", "generic_runner", "log")
 
--- 使用严格兼容 ucodebridge 的动态标签拼接，完美避开语法解析错误
+-- 使用严格兼容 ucodebridge 的动态标签拼接
 log_view.value = ""
     .. "<" .. "textarea class=\"cbi-input-textarea\" style=\"width: 100%; font-family: monospace;\" id=\"log_content\" rows=\"15\" readonly=\"readonly\" wrap=\"off\">正在加载日志...</" .. "textarea>"
     .. "<" .. "script type=\"text/javascript\">"
