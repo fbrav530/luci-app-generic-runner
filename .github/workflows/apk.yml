@@ -10,20 +10,20 @@ jobs:
       - name: 签出本仓库源码
         uses: actions/checkout@v4
 
-      # 新版 SDK 使用了 zstd 压缩，确保系统安装了对应工具
       - name: 安装依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y zstd
+          # 安装 zstd 用于解压新版 SDK 的 tar.zst 格式
+          sudo apt-get install -y zstd curl
 
-- name: 下载并配置工具链
+      - name: 下载并配置工具链
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           
           # 创建 SDK 目录并进入
           mkdir sdk && cd sdk
           
-          # 动态获取最新的 Snapshot SDK 文件名，避免文件更新导致 404 报错
+          # 动态获取最新的 Snapshot SDK 文件名，避免服务器更新导致 404 (exit code 8) 报错
           BASE_URL="https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/"
           SDK_FILE=$(curl -s "$BASE_URL" | grep -oE 'openwrt-sdk-rockchip-armv8[^"]+\.tar\.zst' | head -n 1)
           
@@ -32,6 +32,7 @@ jobs:
             exit 1
           fi
           
+          echo "成功获取 SDK 文件名: $SDK_FILE"
           echo "正在下载最新 SDK: ${BASE_URL}${SDK_FILE}"
           wget -qO sdk.tar.zst "${BASE_URL}${SDK_FILE}"
           
@@ -63,5 +64,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: luci-app-generic-runner-apk
-          # 将后缀改为 .apk。为了防止分类不在 base 目录下，中间的目录也用通配符 * 替代
+          # 使用 *.apk 捕获所有生成的 apk 文件，跨过多层目录寻找以防打包位置变动
           path: sdk/bin/packages/aarch64_generic/*/*.apk
