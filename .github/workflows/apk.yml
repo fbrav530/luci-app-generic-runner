@@ -1,0 +1,62 @@
+name: 编译本地LuCI插件(APK)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 签出本仓库源码
+        uses: actions/checkout@v4
+
+      # 新版 SDK 使用了 zstd 压缩，确保系统安装了对应工具
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: 下载并配置工具链
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          
+          # 创建 SDK 目录并进入
+          mkdir sdk && cd sdk
+          
+          # 下载 25.x(Snapshot) 或 24.10 的 SDK (生成 APK 必须使用新版 SDK)
+          # 注意：当 25.01 正式发布后，请将此链接替换为对应 25.01 版本的实际 URL
+          SDK_URL="https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/openwrt-sdk-rockchip-armv8_gcc-14.2.0_musl.Linux-x86_64.tar.zst"
+          wget -qO sdk.tar.zst $SDK_URL
+          
+          # 解压 zst 格式的 SDK
+          tar -xf sdk.tar.zst --strip-components=1
+          rm -f sdk.tar.zst
+          
+          # 1. 创建插件的目标目录
+          mkdir -p package/luci-app-generic-runner/root
+          
+          # 2. 复制根目录下的 Makefile 到插件目录
+          cp ../Makefile package/luci-app-generic-runner/
+          
+          # 3. 把根目录下的 etc 和 usr 目录，复制到插件的 root 文件夹下 👇
+          [ -d "../etc" ] && cp -R ../etc package/luci-app-generic-runner/root/
+          [ -d "../usr" ] && cp -R ../usr package/luci-app-generic-runner/root/
+          
+          # 更新 feeds 并生成默认配置
+          ./scripts/feeds update -a
+          
+          # 新版 SDK 默认会开启 CONFIG_USE_APK=y，所以 make defconfig 即可支持 apk 编译
+          make defconfig
+
+      - name: 开始编译
+        run: |
+          cd sdk
+          # V=s 用于输出详细日志，-j 用于多线程加速
+          make package/luci-app-generic-runner/compile V=s -j$(nproc)
+
+      - name: 上传编译附件
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-generic-runner-apk
+          # 将后缀改为 .apk。为了防止分类不在 base 目录下，中间的目录也用通配符 * 替代
+          path: sdk/bin/packages/aarch64_generic/*/*.apk
