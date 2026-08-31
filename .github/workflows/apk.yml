@@ -16,17 +16,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
-      - name: 下载并配置工具链
+- name: 下载并配置工具链
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           
           # 创建 SDK 目录并进入
           mkdir sdk && cd sdk
           
-          # 下载 25.x(Snapshot) 或 24.10 的 SDK (生成 APK 必须使用新版 SDK)
-          # 注意：当 25.01 正式发布后，请将此链接替换为对应 25.01 版本的实际 URL
-          SDK_URL="https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/openwrt-sdk-rockchip-armv8_gcc-14.2.0_musl.Linux-x86_64.tar.zst"
-          wget -qO sdk.tar.zst $SDK_URL
+          # 动态获取最新的 Snapshot SDK 文件名，避免文件更新导致 404 报错
+          BASE_URL="https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/"
+          SDK_FILE=$(curl -s "$BASE_URL" | grep -oE 'openwrt-sdk-rockchip-armv8[^"]+\.tar\.zst' | head -n 1)
+          
+          if [ -z "$SDK_FILE" ]; then
+            echo "错误: 未能抓取到 SDK 文件名，请检查 OpenWrt 官网状态。"
+            exit 1
+          fi
+          
+          echo "正在下载最新 SDK: ${BASE_URL}${SDK_FILE}"
+          wget -qO sdk.tar.zst "${BASE_URL}${SDK_FILE}"
           
           # 解压 zst 格式的 SDK
           tar -xf sdk.tar.zst --strip-components=1
@@ -44,8 +51,6 @@ jobs:
           
           # 更新 feeds 并生成默认配置
           ./scripts/feeds update -a
-          
-          # 新版 SDK 默认会开启 CONFIG_USE_APK=y，所以 make defconfig 即可支持 apk 编译
           make defconfig
 
       - name: 开始编译
