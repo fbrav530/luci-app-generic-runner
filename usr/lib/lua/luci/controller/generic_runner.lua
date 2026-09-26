@@ -5,8 +5,8 @@ function index()
         return
     end
     
-    -- 主页面入口
-    entry({"admin", "services", "generic_runner"}, cbi("generic_runner"), _("Generic Runner"), 60)
+    -- 主页面入口，已修改为“通用运行器”
+    entry({"admin", "services", "generic_runner"}, cbi("generic_runner"), _("通用运行器"), 60)
     
     -- 导入、导出、读取日志的后端接口
     entry({"admin", "services", "generic_runner", "export"}, call("action_export"), nil).leaf = true
@@ -32,10 +32,9 @@ function action_import()
 end
 
 function action_get_log()
-    -- 抓取系统日志中带有 generic_runner 标签的内容，取最新的 150 行
     local log = luci.sys.exec("logread -e generic_runner | tail -n 150")
     if not log or log == "" then
-        log = "暂无日志信息...\n请确保 Generic Runner 已全局启用，且存在正在运行的程序实例。"
+        log = "暂无日志信息...\n请确保 通用运行器 已全局启用，且存在正在运行的程序实例。"
     end
     luci.http.prepare_content("text/plain; charset=utf-8")
     luci.http.write(log)
