@@ -1,0 +1,49 @@
+<fieldset class="cbi-section">
+    <legend><%:状态与管理%></legend>
+    
+    <!-- 导入导出工具栏 -->
+    <div class="cbi-section-descr" style="margin-bottom: 15px;">
+        <form action="<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'import')%>" method="post" enctype="multipart/form-data" style="display:inline-block; margin-right:15px;">
+            <input type="file" name="upload" class="cbi-input-file" accept="text/plain" style="margin-right:5px;"/>
+            <input type="submit" class="cbi-button cbi-button-apply" value="<%:导入配置%>" />
+        </form>
+        
+        <form action="<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'export')%>" method="post" style="display:inline-block;">
+            <input type="submit" class="cbi-button cbi-button-download" value="<%:导出配置%>" />
+        </form>
+        
+        <button type="button" class="cbi-button cbi-button-reset" style="margin-left:15px;" onclick="refresh_log()"><%:手动刷新日志%></button>
+    </div>
+
+    <!-- 实时日志文本框 -->
+    <div>
+        <textarea id="generic_runner_log" class="cbi-input-textarea" style="width: 100%; height: 250px; resize: vertical; background-color:#f5f5f5;" readonly="readonly">日志加载中...</textarea>
+    </div>
+</fieldset>
+
+<script type="text/javascript">
+    function refresh_log() {
+        var xhr = new XMLHttpRequest();
+        // 添加随机参数防止浏览器缓存
+        xhr.open("GET", "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'get_log')%>" + "?t=" + Math.random(), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                var log_box = document.getElementById("generic_runner_log");
+                if (xhr.status === 200) {
+                    log_box.value = xhr.responseText;
+                    // 自动滚动到最底部
+                    log_box.scrollTop = log_box.scrollHeight; 
+                } else {
+                    log_box.value = "无法获取系统日志，请检查后台服务。";
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    // 页面加载完毕后立即请求一次，随后每 5 秒刷新一次
+    document.addEventListener("DOMContentLoaded", function() {
+        refresh_log();
+        setInterval(refresh_log, 5000); 
+    });
+</script>
