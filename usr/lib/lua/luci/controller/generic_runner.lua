@@ -5,10 +5,8 @@ function index()
         return
     end
     
-    -- 主页面入口，已修改为“通用运行器”
     entry({"admin", "services", "generic_runner"}, cbi("generic_runner"), _("通用运行器"), 60)
     
-    -- 导入、导出、读取日志的后端接口
     entry({"admin", "services", "generic_runner", "export"}, call("action_export"), nil).leaf = true
     entry({"admin", "services", "generic_runner", "import"}, call("action_import"), nil).leaf = true
     entry({"admin", "services", "generic_runner", "get_log"}, call("action_get_log"), nil).leaf = true
@@ -32,10 +30,32 @@ function action_import()
 end
 
 function action_get_log()
-    local log = luci.sys.exec("logread -e generic_runner | tail -n 150")
-    if not log or log == "" then
-        log = "暂无日志信息...\n请确保 通用运行器 已全局启用，且存在正在运行的程序实例。"
+    local uci = require "luci.model.uci".cursor()
+    local binaries = {}
+    
+    -- 动态遍历配置文件，找出所有启用的程序
+    uci:foreach("generic_runner", "program", function(s)
+        if s.enabled == "1" and s.bin_path and s.bin_path ~= "" then
+            -- 提取二进制文件名 (例如从 /usr/bin/frpc 提取出 frpc)
+            local basename = s.bin_path:match("([^/]+)$")
+            if basename then
+                table.insert(binaries, basename)
+            end
+        end
+    end)
+    
+    local log = ""
+    if #binaries > 0 then
+        -- 拼接 grep 多关键字匹配，例如: "frpc|myapp|testbin"
+        local grep_pattern = table.concat(binaries, "|")
+        -- 抓取包含这些文件名的最新 150 行日志
+        log = luci.sys.exec("logread | grep -E '" .. grep_pattern .. "' | tail -n 150")
     end
+    
+    if not log or log == "" then
+        log = "暂无日志信息...\n请确保全局及程序实例已启用，并且程序产生了终端输出。"
+    end
+    
     luci.http.prepare_content("text/plain; charset=utf-8")
     luci.http.write(log)
 end
