@@ -30,6 +30,12 @@ run_instance() {
     # 进程守护
     procd_set_param respawn 3600 "$respawn_timeout" "$respawn_retry"
     
+    # ----------------------------------------------------
+    # 新增：将日志输出重定向到系统日志，供 LuCI 抓取
+    # ----------------------------------------------------
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    
     procd_close_instance
 }
 
