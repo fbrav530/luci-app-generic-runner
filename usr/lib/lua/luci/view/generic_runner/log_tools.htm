@@ -2,7 +2,6 @@
     <legend><%:状态与配置管理%></legend>
     <div class="cbi-section-descr" style="margin-bottom: 15px;">
         <span style="display:inline-block; margin-right:15px;">
-            <!-- 这里修改了 accept 属性，允许选择 .config 文件 -->
             <input type="file" id="config_upload" class="cbi-input-file" accept=".config, *" style="margin-right:5px;" />
             <input type="button" class="cbi-button cbi-button-apply" value="<%:导入配置%>" onclick="import_config()" />
         </span>
@@ -22,25 +21,34 @@
         window.location.href = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'export')%>";
     }
 
+    // 核心修复：改用 FormData 和 XMLHttpRequest 进行标准的异步文件上传
     function import_config() {
         var fileInput = document.getElementById('config_upload');
         if (!fileInput.files.length) {
             alert("请先选择要导入的配置文件！");
             return;
         }
+
+        var formData = new FormData();
+        formData.append("upload", fileInput.files[0]);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'import')%>", true);
         
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.action = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'import')%>";
-        form.enctype = 'multipart/form-data';
-        form.style.display = 'none';
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                alert("配置导入成功，即将刷新页面应用新配置！");
+                window.location.reload(); // 成功后刷新当前页面
+            } else {
+                alert("导入失败，发生未知错误。");
+            }
+        };
+        
+        xhr.onerror = function() {
+            alert("请求出错，请检查网络。");
+        };
 
-        var newFileInput = fileInput.cloneNode(true);
-        fileInput.parentNode.replaceChild(newFileInput, fileInput);
-        form.appendChild(fileInput);
-
-        document.body.appendChild(form);
-        form.submit();
+        xhr.send(formData);
     }
 
     function refresh_log() {
