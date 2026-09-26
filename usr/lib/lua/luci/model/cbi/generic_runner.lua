@@ -1,22 +1,20 @@
 local m, s, o
 
-m = Map("generic_runner", translate("Generic Runner"), translate("在这里管理 Generic Runner 的配置与运行状态。"))
+-- 修改标题为“通用运行器”
+m = Map("generic_runner", translate("通用运行器"), translate("在这里管理通用运行器的配置与运行状态。"))
 
--- 【1】挂载导入导出和日志面板（调用我们新建的 HTML 视图）
 local s_tools = m:section(TypedSection, "generic_runner")
 s_tools.anonymous = true
 s_tools.template = "generic_runner/log_tools"
 
--- 【2】全局设置模块 (对应 config global)
 s = m:section(NamedSection, "global", "global", translate("全局设置"))
 s.anonymous = true
 s.addremove = false
 
-o = s:option(Flag, "enabled", translate("启用 Generic Runner"))
+o = s:option(Flag, "enabled", translate("启用通用运行器"))
 o.rmempty = false
 
 
--- 【3】程序实例列表 (对应 config program)
 s = m:section(TypedSection, "program", translate("程序实例列表"))
 s.anonymous = true
 s.addremove = true
