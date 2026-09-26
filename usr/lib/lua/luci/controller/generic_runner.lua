@@ -48,8 +48,8 @@ function action_get_log()
     if #binaries > 0 then
         -- 拼接 grep 多关键字匹配，例如: "frpc|myapp|testbin"
         local grep_pattern = table.concat(binaries, "|")
-        -- 抓取包含这些文件名的最新 150 行日志
-        log = luci.sys.exec("logread | grep -E '" .. grep_pattern .. "' | tail -n 150")
+        -- 抓取包含这些文件名的最新 100 行日志
+        log = luci.sys.exec("logread | grep -E '" .. grep_pattern .. "' | tail -n 100")
     end
     
     if not log or log == "" then
