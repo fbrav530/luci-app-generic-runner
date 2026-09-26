@@ -1,13 +1,14 @@
 <fieldset class="cbi-section">
     <legend><%:状态与配置管理%></legend>
     <div class="cbi-section-descr" style="margin-bottom: 15px;">
-        <form action="<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'import')%>" method="post" enctype="multipart/form-data" style="display:inline-block; margin-right:15px;">
-            <input type="file" name="upload" class="cbi-input-file" accept="text/plain" style="margin-right:5px;" required />
-            <input type="submit" class="cbi-button cbi-button-apply" value="<%:导入配置%>" />
-        </form>
-        <form action="<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'export')%>" method="post" style="display:inline-block;">
-            <input type="submit" class="cbi-button cbi-button-download" value="<%:导出配置%>" />
-        </form>
+        <!-- 移除原有 <form> 标签，避免与 LuCI 的全局表单嵌套冲突 -->
+        <span style="display:inline-block; margin-right:15px;">
+            <input type="file" id="config_upload" class="cbi-input-file" accept="text/plain" style="margin-right:5px;" />
+            <input type="button" class="cbi-button cbi-button-apply" value="<%:导入配置%>" onclick="import_config()" />
+        </span>
+        <span style="display:inline-block;">
+            <input type="button" class="cbi-button cbi-button-download" value="<%:导出配置%>" onclick="export_config()" />
+        </span>
         <button type="button" class="cbi-button cbi-button-reset" style="margin-left:15px;" onclick="refresh_log()"><%:刷新日志%></button>
     </div>
     
@@ -17,17 +18,42 @@
 </fieldset>
 
 <script type="text/javascript">
+    function export_config() {
+        // 直接跳转到导出接口即可触发下载
+        window.location.href = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'export')%>";
+    }
+
+    function import_config() {
+        var fileInput = document.getElementById('config_upload');
+        if (!fileInput.files.length) {
+            alert("请先选择要导入的配置文件！");
+            return;
+        }
+        
+        // 动态创建不可见的 form 提交到后台，完美避开 LuCI 嵌套表单冲突
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'import')%>";
+        form.enctype = 'multipart/form-data';
+        form.style.display = 'none';
+
+        // 将文件输入框移入动态表单（同时在原位置克隆一个，防止破坏页面结构）
+        var newFileInput = fileInput.cloneNode(true);
+        fileInput.parentNode.replaceChild(newFileInput, fileInput);
+        form.appendChild(fileInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
     function refresh_log() {
         var xhr = new XMLHttpRequest();
         xhr.open("GET", "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'get_log')%>" + "?t=" + Math.random(), true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 var log_box = document.getElementById("generic_runner_log");
-                // 仅当用户没有在往上滚动查看日志时，才自动滚动到最底部
                 var isScrolledToBottom = log_box.scrollHeight - log_box.clientHeight <= log_box.scrollTop + 10;
-                
                 log_box.value = xhr.responseText;
-                
                 if (isScrolledToBottom) {
                     log_box.scrollTop = log_box.scrollHeight; 
                 }
@@ -37,7 +63,6 @@
     }
     document.addEventListener("DOMContentLoaded", function() {
         refresh_log();
-        // 每隔 3 秒自动刷新一次日志
         setInterval(refresh_log, 3000); 
     });
 </script>
