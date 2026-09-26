@@ -7,7 +7,7 @@ run_instance() {
     local cfg="$1"
     local enabled name bin_path extra_args respawn_retry respawn_timeout
 
-    # 核心修改：读取单个程序的启用状态，默认值为 0 👇
+    # 读取单个程序的启用状态，默认值为 0
     config_get_bool enabled "$cfg" 'enabled' 0
     [ "$enabled" -eq 1 ] || return 0
 
@@ -30,9 +30,7 @@ run_instance() {
     # 进程守护
     procd_set_param respawn 3600 "$respawn_timeout" "$respawn_retry"
     
-    # ----------------------------------------------------
-    # 新增：将日志输出重定向到系统日志，供 LuCI 抓取
-    # ----------------------------------------------------
+    # 【新增】将标准输出和错误输出重定向到系统日志中，供前端界面抓取
     procd_set_param stdout 1
     procd_set_param stderr 1
     
