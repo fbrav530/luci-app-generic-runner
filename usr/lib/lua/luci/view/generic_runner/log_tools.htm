@@ -1,14 +1,21 @@
 <fieldset class="cbi-section">
     <legend><%:状态与配置管理%></legend>
-    <div class="cbi-section-descr" style="margin-bottom: 15px;">
-        <span style="display:inline-block; margin-right:15px;">
+    <div class="cbi-section-descr" style="margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <span>
             <input type="file" id="config_upload" class="cbi-input-file" accept=".config, *" style="margin-right:5px;" />
             <input type="button" class="cbi-button cbi-button-apply" value="<%:导入配置%>" onclick="import_config()" />
         </span>
-        <span style="display:inline-block;">
+        <span>
             <input type="button" class="cbi-button cbi-button-download" value="<%:导出配置%>" onclick="export_config()" />
         </span>
-        <button type="button" class="cbi-button cbi-button-reset" style="margin-left:15px;" onclick="refresh_log()"><%:刷新日志%></button>
+        
+        <!-- 新增下拉筛选框，推至右侧对齐 -->
+        <span style="margin-left: auto;">
+            <select id="log_filter" class="cbi-input-select" onchange="refresh_log()" style="margin-right: 10px; width: 150px;">
+                <option value="all"><%:全部实例%></option>
+            </select>
+            <button type="button" class="cbi-button cbi-button-reset" onclick="refresh_log()"><%:刷新日志%></button>
+        </span>
     </div>
     
     <div>
@@ -21,7 +28,6 @@
         window.location.href = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'export')%>";
     }
 
-    // 核心修复：改用 FormData 和 XMLHttpRequest 进行标准的异步文件上传
     function import_config() {
         var fileInput = document.getElementById('config_upload');
         if (!fileInput.files.length) {
@@ -38,29 +44,54 @@
         xhr.onload = function() {
             if (xhr.status === 200) {
                 alert("配置导入成功，即将刷新页面应用新配置！");
-                window.location.reload(); // 成功后刷新当前页面
+                window.location.reload(); 
             } else {
                 alert("导入失败，发生未知错误。");
             }
         };
-        
         xhr.onerror = function() {
             alert("请求出错，请检查网络。");
         };
-
         xhr.send(formData);
     }
 
+    // 核心修改：读取下拉框的值并传递给后端，同时动态更新下拉选项
     function refresh_log() {
+        var filter = document.getElementById('log_filter').value;
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'get_log')%>" + "?t=" + Math.random(), true);
+        
+        // 把当前选中的 app 作为参数传给后端
+        xhr.open("GET", "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'get_log')%>" + "?t=" + Math.random() + "&app=" + encodeURIComponent(filter), true);
+        
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
-                var log_box = document.getElementById("generic_runner_log");
-                var isScrolledToBottom = log_box.scrollHeight - log_box.clientHeight <= log_box.scrollTop + 10;
-                log_box.value = xhr.responseText;
-                if (isScrolledToBottom) {
-                    log_box.scrollTop = log_box.scrollHeight; 
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    
+                    // 1. 更新下拉框里的选项列表
+                    var select = document.getElementById('log_filter');
+                    var currentVal = select.value;
+                    var optsHtml = '<option value="all">全部实例</option>';
+                    for (var i = 0; i < data.apps.length; i++) {
+                        optsHtml += '<option value="' + data.apps[i] + '">' + data.apps[i] + '</option>';
+                    }
+                    select.innerHTML = optsHtml;
+                    
+                    // 恢复之前的选中状态（如果该程序已下线，则重置为 all）
+                    select.value = currentVal;
+                    if (select.value === "") { select.value = "all"; }
+
+                    // 2. 更新日志文本框
+                    var log_box = document.getElementById("generic_runner_log");
+                    var isScrolledToBottom = log_box.scrollHeight - log_box.clientHeight <= log_box.scrollTop + 10;
+                    
+                    log_box.value = data.log;
+                    
+                    if (isScrolledToBottom) {
+                        log_box.scrollTop = log_box.scrollHeight; 
+                    }
+                } catch(e) {
+                    document.getElementById("generic_runner_log").value = "日志解析错误...";
                 }
             }
         };
