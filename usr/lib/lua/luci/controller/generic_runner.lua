@@ -19,12 +19,10 @@ function action_export()
     luci.http.write(fs.readfile("/etc/config/generic_runner") or "")
 end
 
--- 核心修复：使用 setfilehandler 处理流文件并返回 HTTP 状态码
 function action_import()
     local fs = require "nixio.fs"
     local file_content = ""
     
-    -- 注册文件处理器，接收传进来的二进制流
     luci.http.setfilehandler(
         function(meta, chunk, eof)
             if not meta then return end
@@ -33,8 +31,6 @@ function action_import()
             end
         end
     )
-    
-    -- 触发 formvalue 解析，这一步会执行上面的 setfilehandler
     luci.http.formvalue("upload")
     
     if file_content ~= "" then
@@ -46,29 +42,46 @@ function action_import()
     end
 end
 
+-- 核心修改：新增 JSON 响应和按应用名称筛选日志
 function action_get_log()
     local uci = require "luci.model.uci".cursor()
+    local req_app = luci.http.formvalue("app") -- 接收前端传来的筛选参数
     local binaries = {}
     
     uci:foreach("generic_runner", "program", function(s)
         if s.enabled == "1" and s.bin_path and s.bin_path ~= "" then
             local basename = s.bin_path:match("([^/]+)$")
             if basename then
-                table.insert(binaries, basename)
+                -- 去重逻辑
+                local exists = false
+                for _, v in ipairs(binaries) do
+                    if v == basename then exists = true break end
+                end
+                if not exists then table.insert(binaries, basename) end
             end
         end
     end)
     
     local log = ""
     if #binaries > 0 then
-        local grep_pattern = table.concat(binaries, "|")
-        log = luci.sys.exec("logread | grep -E '" .. grep_pattern .. "' | tail -n 100")
+        if req_app and req_app ~= "" and req_app ~= "all" then
+            -- 如果选择了特定的程序，只 grep 这个程序
+            log = luci.sys.exec("logread | grep -E '" .. req_app .. "' | tail -n 100")
+        else
+            -- 否则 grep 所有的程序
+            local grep_pattern = table.concat(binaries, "|")
+            log = luci.sys.exec("logread | grep -E '" .. grep_pattern .. "' | tail -n 100")
+        end
     end
     
     if not log or log == "" then
         log = "暂无日志信息...\n请确保全局及程序实例已启用，并且程序产生了终端输出。"
     end
     
-    luci.http.prepare_content("text/plain; charset=utf-8")
-    luci.http.write(log)
+    local jsonc = require "luci.jsonc"
+    luci.http.prepare_content("application/json")
+    luci.http.write(jsonc.stringify({
+        apps = binaries,
+        log = log
+    }))
 end
