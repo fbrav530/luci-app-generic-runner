@@ -102,3 +102,140 @@
         setInterval(refresh_log, 3000); 
     });
 </script>
+
+<!-- 程序路径输入框右侧的「上传」按钮：上传二进制到 /root，自动 755，并回填本行路径 -->
+<script type="text/javascript">
+//<![CDATA[
+(function() {
+    var upload_url = "<%=luci.dispatcher.build_url('admin', 'services', 'generic_runner', 'upload_bin')%>";
+
+    // 在 bin_path 输入框右侧插入「上传」按钮
+    function inject(inp) {
+        if (inp.getAttribute("data-gr-up")) return;
+        inp.setAttribute("data-gr-up", "1");
+
+        var box = document.createElement("span");
+        box.style.display = "flex";
+        box.style.alignItems = "center";
+        box.style.gap = "4px";
+
+        var btn = document.createElement("input");
+        btn.type = "button";
+        btn.className = "cbi-button cbi-button-action";
+        btn.value = "上传";
+        btn.title = "上传二进制文件到 /root，自动设置 755 权限";
+        btn.setAttribute("data-gr-btn", "1");
+        btn.style.flex = "0 0 auto";
+        btn.style.padding = "2px 8px";
+        btn.style.fontSize = "12px";
+
+        var fi = document.createElement("input");
+        fi.type = "file";
+        fi.setAttribute("data-gr-fi", "1");
+        fi.style.display = "none";
+
+        inp.parentNode.insertBefore(box, inp);
+        box.appendChild(inp);
+        box.appendChild(btn);
+        box.appendChild(fi);
+
+        // 让输入框占满剩余宽度，按钮固定在右侧
+        inp.style.flex = "1 1 0%";
+        inp.style.width = "auto";
+        inp.style.minWidth = "0";
+    }
+
+    function flash(el) {
+        el.style.transition = "background-color .4s";
+        el.style.backgroundColor = "#e8f5e9";
+        setTimeout(function() { el.style.backgroundColor = ""; }, 1500);
+    }
+
+    function upload(file, inp, btn, fi) {
+        var fd = new FormData();
+        fd.append("upload", file);
+
+        if (btn) {
+            btn.disabled = true;
+            btn.value = "0%";
+        }
+
+        function restore() {
+            if (btn) {
+                btn.disabled = false;
+                btn.value = "上传";
+            }
+            fi.value = "";
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", upload_url, true);
+
+        xhr.upload.onprogress = function(e) {
+            if (btn && e.lengthComputable) {
+                btn.value = Math.round(e.loaded * 100 / e.total) + "%";
+            }
+        };
+
+        xhr.onload = function() {
+            var res = null;
+            try { res = JSON.parse(xhr.responseText); } catch (err) { res = null; }
+            restore();
+
+            if (xhr.status === 200 && res && res.ok) {
+                inp.value = res.path;
+                inp.dispatchEvent(new Event("change", { bubbles: true }));
+                flash(inp);
+            } else {
+                alert((res && res.msg) ? res.msg : ("上传失败，HTTP " + xhr.status));
+            }
+        };
+
+        xhr.onerror = function() {
+            restore();
+            alert("上传失败：请求出错，请检查网络或文件是否过大。");
+        };
+
+        xhr.send(fd);
+    }
+
+    function scan() {
+        var inputs = document.querySelectorAll('input[name$="bin_path"]');
+        for (var i = 0; i < inputs.length; i++) inject(inputs[i]);
+    }
+
+    // 事件委托：CBI 新增/克隆的表格行也能正常使用
+    document.addEventListener("click", function(e) {
+        var t = e.target;
+        if (!t || !t.getAttribute || !t.getAttribute("data-gr-btn")) return;
+        var fi = t.parentNode && t.parentNode.querySelector('input[type="file"]');
+        if (fi) fi.click();
+    });
+
+    document.addEventListener("change", function(e) {
+        var t = e.target;
+        if (!t || !t.getAttribute || !t.getAttribute("data-gr-fi")) return;
+        if (!t.files || !t.files.length) return;
+        var box = t.parentNode;
+        var inp = box.querySelector('input[name$="bin_path"]');
+        var btn = box.querySelector('[data-gr-btn]');
+        if (inp) upload(t.files[0], inp, btn, t);
+    });
+
+    var timer = null;
+    function schedule() {
+        if (timer) return;
+        timer = setTimeout(function() { timer = null; scan(); }, 150);
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        scan();
+        if (window.MutationObserver) {
+            new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+        } else {
+            setInterval(scan, 1000);
+        }
+    });
+})();
+//]]>
+</script>
