@@ -40,3 +40,36 @@ jobs:
           wget -qO sdk_archive "${BASE_URL}${SDK_FILE}"
           
           # 自动判断后缀名并使用正确的解压方式
+          if [[ "$SDK_FILE" == *.zst ]]; then
+            tar -I zstd -xf sdk_archive --strip-components=1
+          else
+            tar -xf sdk_archive --strip-components=1
+          fi
+          rm -f sdk_archive
+          
+          # 1. 创建插件的目标目录
+          mkdir -p package/luci-app-generic-runner/root
+          
+          # 2. 复制根目录下的 Makefile 到插件目录
+          cp ../Makefile package/luci-app-generic-runner/
+          
+          # 3. 把根目录下的 etc 和 usr 目录，复制到插件的 root 文件夹下
+          [ -d "../etc" ] && cp -R ../etc package/luci-app-generic-runner/root/
+          [ -d "../usr" ] && cp -R ../usr package/luci-app-generic-runner/root/
+          
+          # 更新 feeds 并生成默认配置
+          ./scripts/feeds update -a
+          make defconfig
+
+      - name: 开始编译
+        run: |
+          cd sdk
+          # V=s 用于输出详细日志，-j 用于多线程加速
+          make package/luci-app-generic-runner/compile V=s -j$(nproc)
+
+      - name: 上传编译附件
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-generic-runner-apk
+          # 使用 *.apk 捕获所有生成的 apk 文件，跨过多层目录寻找以防打包位置变动
+          path: sdk/bin/packages/aarch64_generic/*/*.apk
