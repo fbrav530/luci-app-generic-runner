@@ -23,9 +23,10 @@ jobs:
           # 创建 SDK 目录并进入
           mkdir sdk && cd sdk
           
-          # 动态获取最新的 Snapshot SDK 文件名，避免服务器更新导致 404 (exit code 8) 报错
           BASE_URL="https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/"
-          SDK_FILE=$(curl -s "$BASE_URL" | grep -oE 'openwrt-sdk-rockchip-armv8[^"]+\.tar\.zst' | head -n 1)
+          
+          # 使用 curl -sL 跟随重定向，并解析 sha256sums 纯文本文件获取最新 SDK 名称
+          SDK_FILE=$(curl -sL "${BASE_URL}sha256sums" | grep -oE 'openwrt-sdk-rockchip-armv8[a-zA-Z0-9_\.-]+\.tar\.(zst|xz)' | head -n 1)
           
           if [ -z "$SDK_FILE" ]; then
             echo "错误: 未能抓取到 SDK 文件名，请检查 OpenWrt 官网状态。"
@@ -34,35 +35,8 @@ jobs:
           
           echo "成功获取 SDK 文件名: $SDK_FILE"
           echo "正在下载最新 SDK: ${BASE_URL}${SDK_FILE}"
-          wget -qO sdk.tar.zst "${BASE_URL}${SDK_FILE}"
           
-          # 解压 zst 格式的 SDK
-          tar -xf sdk.tar.zst --strip-components=1
-          rm -f sdk.tar.zst
+          # 统一将下载的文件命名为 sdk_archive
+          wget -qO sdk_archive "${BASE_URL}${SDK_FILE}"
           
-          # 1. 创建插件的目标目录
-          mkdir -p package/luci-app-generic-runner/root
-          
-          # 2. 复制根目录下的 Makefile 到插件目录
-          cp ../Makefile package/luci-app-generic-runner/
-          
-          # 3. 把根目录下的 etc 和 usr 目录，复制到插件的 root 文件夹下 👇
-          [ -d "../etc" ] && cp -R ../etc package/luci-app-generic-runner/root/
-          [ -d "../usr" ] && cp -R ../usr package/luci-app-generic-runner/root/
-          
-          # 更新 feeds 并生成默认配置
-          ./scripts/feeds update -a
-          make defconfig
-
-      - name: 开始编译
-        run: |
-          cd sdk
-          # V=s 用于输出详细日志，-j 用于多线程加速
-          make package/luci-app-generic-runner/compile V=s -j$(nproc)
-
-      - name: 上传编译附件
-        uses: actions/upload-artifact@v4
-        with:
-          name: luci-app-generic-runner-apk
-          # 使用 *.apk 捕获所有生成的 apk 文件，跨过多层目录寻找以防打包位置变动
-          path: sdk/bin/packages/aarch64_generic/*/*.apk
+          # 自动判断后缀名并使用正确的解压方式
