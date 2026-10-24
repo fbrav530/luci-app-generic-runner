@@ -1,53 +1,43 @@
-local fs  = require "nixio.fs"
-local sys = require "luci.sys"
+local m, s, o
 
--- 映射 UCI 配置文件 (对应 /etc/config/generic_runner)
-m = Map("generic_runner", translate("Generic Runner"), translate("在此处管理并上传你的二进制程序，文件将自动保存并授权至 /root/ 目录。"))
+-- 修改标题为“通用运行器”
+m = Map("generic_runner", translate("通用运行器"), translate("在这里管理通用运行器的配置与运行状态。"))
 
--- 使用 TypedSection 支持动态添加多个实例
-s = m:section(TypedSection, "runner", translate("程序实例"))
+local s_tools = m:section(TypedSection, "generic_runner")
+s_tools.anonymous = true
+s_tools.template = "generic_runner/log_tools"
+
+s = m:section(NamedSection, "global", "global", translate("全局设置"))
 s.anonymous = true
-s.addremove = true  -- 允许动态添加和删除
+s.addremove = false
 
--- 启用开关
-e = s:option(Flag, "enable", translate("启用"))
-e.rmempty = false
+o = s:option(Flag, "enabled", translate("启用通用运行器"))
+o.rmempty = false
 
--- 实例名称
-name = s:option(Value, "name", translate("名称/备注"))
-name.rmempty = true
 
--- 【核心修改】：文件上传控件
-bin = s:option(FileUpload, "bin_path", translate("程序路径 / 上传"), translate("请上传二进制文件。每次添加新项都可单独上传。"))
-bin.rmempty = false
+s = m:section(TypedSection, "program", translate("程序实例列表"))
+s.anonymous = true
+s.addremove = true
+s.template = "cbi/tblsection"
 
--- 重写 write 方法来处理上传后的文件存放与提权
-function bin.write(self, section, value)
-    -- value 是上传后系统暂存的路径或用户手动输入的路径
-    if value and fs.access(value) then
-        -- 提取文件名
-        local filename = fs.basename(value)
-        -- 拼接目标路径为 /root/xxx
-        local target_path = "/root/" .. filename
-        
-        -- 如果临时文件不在目标位置，则移动文件
-        if value ~= target_path then
-            fs.rename(value, target_path)
-        end
-        
-        -- 赋予可执行权限 (chmod +x)
-        fs.chmod(target_path, 755)
-        
-        -- 将新的路径写入到 UCI 配置中
-        Value.write(self, section, target_path)
-    else
-        -- 如果没有实际文件传入，直接写入用户输入的字符串
-        Value.write(self, section, value)
-    end
-end
+o = s:option(Flag, "enabled", translate("启用"))
+o.rmempty = false
 
--- 运行参数
-args = s:option(Value, "args", translate("运行参数"))
-args.rmempty = true
+o = s:option(Value, "name", translate("名称(Name)"))
+o.rmempty = false
+
+o = s:option(Value, "bin_path", translate("程序路径(Bin Path)"))
+o.rmempty = false
+
+o = s:option(Value, "extra_args", translate("启动参数(Extra Args)"))
+o.rmempty = true
+
+o = s:option(Value, "respawn_timeout", translate("重启超时(秒)"))
+o.default = "5"
+o.rmempty = true
+
+o = s:option(Value, "respawn_retry", translate("重试次数"))
+o.default = "5"
+o.rmempty = true
 
 return m
